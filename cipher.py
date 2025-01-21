@@ -51,13 +51,13 @@ def PKCS7_unpad(data: bytes) -> bytes:
     #Remove the padding
     return data
 
-#generate a random AES key
-def generate_aes_key(key_length: int) -> bytes:
-    if key_length not in [16, 24, 32]:
-        raise ValueError("Key length must be 16, 24, or 32 bytes for AES.")
-    return get_random_bytes(key_length)
+# #generate a random AES key
+# def generate_aes_key(key_length: int) -> bytes:
+#     if key_length not in [16, 24, 32]:
+#         raise ValueError("Key length must be 16, 24, or 32 bytes for AES.")
+#     return get_random_bytes(key_length)
 
-#encrpyt the image using ECB
+#encrpyt the data using ECB
 def ECB_encrypt(data: bytes, key: bytes) -> bytes:
     block_size = len(key)
     padded_data = PKCS7_pad(data, block_size)
@@ -71,7 +71,7 @@ def ECB_encrypt(data: bytes, key: bytes) -> bytes:
         cipher_text += cipher_block
     return cipher_text
 
-#decrpyt the image using ECB
+#decrpyt the data using ECB
 def ECB_decrypt(data: bytes, key: bytes) -> bytes:
     block_size = len(key)
     #Create the AES cipher in ECB mode
@@ -86,7 +86,7 @@ def ECB_decrypt(data: bytes, key: bytes) -> bytes:
     plaintext_data = PKCS7_unpad(decrypted_data)
     return plaintext_data
 
-#encrypt the image using CBC
+#encrypt the data using CBC
 def CBC_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     block_size = len(key)
     padded_data = PKCS7_pad(data, block_size)
@@ -104,7 +104,7 @@ def CBC_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
         cipher_text += cipher_block
     return cipher_text
 
-#decrpyt the image using ECB
+#decrpyt the data using ECB
 def CBC_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     block_size = len(key)
     #Create the AES cipher in ECB mode
@@ -125,7 +125,7 @@ def CBC_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     plaintext_data = PKCS7_unpad(decrypted_data)
     return plaintext_data
      
-#encrypt the image using AES
+#encrypt the image using AES in ECB or CBC mode
 def encrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> bytes:
     #seperate the header and data
     header = read_BMP_header(image_filename)
@@ -149,7 +149,7 @@ def encrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
     else:
         raise ValueError("Invalid mode")
     
-#encrypt the image using AES
+#decrypt the image using AES in ECB or CBC mode
 def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> None:
     #seperate the header and data
     header = read_BMP_header(image_filename)
@@ -173,33 +173,28 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
     else:
         raise ValueError("Invalid mode") 
 
-# #encrypt text using AES in CBC mode
-# def submit(userdata: str, key: bytes, iv: bytes) -> bytes:  
-#     text = "userid=456; userdata=" + userdata + ";session-id=31337"
-#     #URL encode the text replacing '=' and ';' with their respective ASCII values
-#     encoded_text= text.replace(";", "%3B").replace("=", "%3D")
-#     #pad the text to a multiple of 16 bytes
-#     padded_text = PKCS7_pad(encoded_text.encode(), len(encoded_text.encode()))
-#     #encrypt the padded text using AES in CBC mode
-#     CBC_encrypt("plaintext.bmp", key, iv)
-#     #read the encrypted data from the file
-#     with open("plaintext_CBC_encrypted.bmp", "rb") as file:
-#         ciphertext = file.read()
-#     return ciphertext
+#encrypt text using AES in CBC mode
+def submit(userdata: str, key: bytes, iv: bytes) -> bytes:  
+    text = "userid=456; userdata=" + userdata + ";session-id=31337"
+    #URL encode the text replacing '=' and ';' with their respective ASCII values
+    encoded_text= text.replace(";", "%3B").replace("=", "%3D")
+    #pad the text to a multiple of 16 bytes
+    padded_text = PKCS7_pad(encoded_text.encode(), len(encoded_text.encode()))
+    #encrypt the padded text using AES in CBC mode
+    ciphertext = CBC_encrypt(padded_text, key, iv)
+    return ciphertext
 
-# #decrypt text using AES in CBC mode
-# def verify(cipher_text: str, key: bytes, iv: bytes):
-#     #obtain the cipher_text from the file
-#     with open(cipher_text, "rb") as file:
-#         cipher_bytes = file.read()
-#     cipher = AES.new(key, AES.MODE_CBC, iv)
-#     #bytes = PKCS7_unpad(bytes)
-#     data = cipher.decrypt(cipher_bytes)
-#     #remove padding from the decrypted
-#     data = PKCS7_unpad(data)
-#     plaintext = data.decode()
-#     #extract the userdata from the plaintext
-#     if (";admin=true;" in plaintext):
-#         return True
-#     else:
-#         return False
+#decrypt text using AES in CBC mode
+def verify(cipher_text: bytes, key: bytes, iv: bytes) -> bool:
+    #Create the AES cipher in ECB mode
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    #decrypt the cipher text
+    data = cipher.decrypt(cipher_text)
+    #remove padding from the decrypted
+    data = PKCS7_unpad(data)
+    plaintext = data.decode()
+    #extract the userdata from the plaintext
+    if (";admin=true;" in plaintext):
+        return True
+    else:
+        return False
