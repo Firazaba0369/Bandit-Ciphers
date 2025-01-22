@@ -4,6 +4,8 @@ import os
 import sys
 import struct
 
+#----------------task 1 code---------------------
+
 #helper function that determines the header size of a given BMP file
 def get_header_size(filename:str) -> int:
     with open(filename, "rb") as file:
@@ -173,6 +175,8 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
     else:
         raise ValueError("Invalid mode") 
 
+#----------------task 2 code---------------------
+
 #encrypt text using AES in CBC mode
 def submit(userdata: str, key: bytes, iv: bytes) -> bytes:  
     text = "userid=456; userdata=" + userdata + ";session-id=31337"
@@ -198,3 +202,59 @@ def verify(cipher_text: bytes, key: bytes, iv: bytes) -> bool:
         return True
     else:
         return False
+
+#bit flipping attack to modify the ciphertext to inject the target string
+def bit_flipping(ciphertext: str, key: bytes, target: str) -> bytes:
+    block_size = len(key)
+    #split the ciphertext into blocks
+    blocks = []
+    for i in range(0, len(ciphertext), block_size):
+        blocks.append(ciphertext[i:i + block_size])
+    #convert the target string to bytes
+    target_bytes = target.encode()
+    #find the block that contains the target string
+    target_block_idx= 0
+    for i in range(len(blocks)):
+        if target_bytes in blocks[i]:
+            target_block_idx = i
+            break
+    #Modify the preceding ciphertext block to inject the target
+    modified_block = bytearray(blocks[target_block_idx - 1]) #bytearray makes it mutable
+    
+    for i in range(len(target_bytes)):
+        target_char = target_bytes[i]
+        #Replace with the correct byte
+        original_char = ord(';') if i < len(";admin=true;") else 0
+        #XOR with the difference  
+        modified_block[i] ^= target_char ^ original_char 
+
+    # Replace the modified block in the ciphertext
+    blocks[target_block_idx - 1] = bytes(modified_block) 
+
+    #Reassemble the modified ciphertext
+    modified_ciphertext = b"".join(blocks)
+    return modified_ciphertext
+
+
+#----------------main code--------------------- 
+# if __name__ == "__main__":
+from cipher import *
+
+#----------------task 1 execution---------------------
+# key = get_random_bytes(16)
+# iv = get_random_bytes(16)
+# #cp-logo
+# encrypt_image("cp-logo.bmp", "ECB", key)
+# decrypt_image("cp-logo_ECB_encrypted.bmp", "ECB", key)
+# encrypt_image("cp-logo.bmp", "CBC", key, iv)
+# decrypt_image("cp-logo_CBC_encrypted.bmp", "CBC", key, iv)
+# #mustang
+# encrypt_image("mustang.bmp", "ECB", key)
+# decrypt_image("mustang_ECB_encrypted.bmp", "ECB", key)
+# encrypt_image("mustang.bmp", "CBC", key, iv)
+# decrypt_image("mustang_CBC_encrypted.bmp", "CBC", key, iv)
+
+# #----------------task 2 execution---------------------
+# cipher_text = submit("You’re the man now, dog", key, iv)
+# modified_cipher_text = bit_flipping(cipher_text, key, ";admin=true;")
+# print(verify(cipher_text, key, iv))
