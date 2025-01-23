@@ -1,8 +1,38 @@
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-import os
-import sys
-import struct
+
+#----------------main execution--------------------- 
+def main():
+    
+    #----------------task 1 execution---------------------
+    key = get_random_bytes(16)
+    iv = get_random_bytes(16)
+
+    #cp-logo
+    encrypt_image("cp-logo.bmp", "ECB", key)
+    decrypt_image("cp-logo_ECB_encrypted.bmp", "ECB", key)
+    encrypt_image("cp-logo.bmp", "CBC", key, iv)
+    decrypt_image("cp-logo_CBC_encrypted.bmp", "CBC", key, iv)
+
+    #mustang
+    encrypt_image("mustang.bmp", "ECB", key)
+    decrypt_image("mustang_ECB_encrypted.bmp", "ECB", key)
+    encrypt_image("mustang.bmp", "CBC", key, iv)
+    decrypt_image("mustang_CBC_encrypted.bmp", "CBC", key, iv)
+
+    #----------------task 2 execution---------------------
+    text = "eXtraD8tuh9hdm1n8yu37ncr6"
+    target = ";admin=true;"
+    ciphertext, message = submit(text, key, iv)
+
+    # Find position of '9' in the message to insert target string
+    pos = message.index('9')
+
+    #bit flip the data to get the target string
+    modified_ciphertext = bit_flipping(ciphertext, key, pos, target, message)
+    result = verify(modified_ciphertext, key, iv)
+    print(result)
+
 
 #----------------task 1 code---------------------
 
@@ -26,15 +56,13 @@ def read_BMP_header(filename: str) -> bytes:
             return file.read(header_size)
 
 #extract the data from the BMP file
-def read_image_data(filename: str) -> bytes: #CBC_decrypt: #bool = False, block_size: int = 16
+def read_image_data(filename: str) -> bytes:
         header_size = get_header_size(filename)
         with open(filename, "rb") as file:
             file.seek(header_size)
-            #if(CBC_decrypt == True):
-                #file.seek(block_size)
             return file.read()
          
-#padding function for PKCS7
+#add padding using PKCS7 standard
 def PKCS7_pad(data: bytes, block_size: int) -> None:
     #get the amount of padding needed
     file_size = len(data)
@@ -43,25 +71,19 @@ def PKCS7_pad(data: bytes, block_size: int) -> None:
     #add padding to data
     return data + padding
 
-#remove padding from data
+#remove padding using PKCS7 standard
 def PKCS7_unpad(data: bytes) -> bytes:
     #Get the value of the last byte
-    #padding_length = int(data[len(data)-1])
     padding_length = data[-1]
+    #Remove the padding
     if (padding_length <= 16):
         data = data[:len(data)-padding_length]
-    #Remove the padding
     return data
-
-# #generate a random AES key
-# def generate_aes_key(key_length: int) -> bytes:
-#     if key_length not in [16, 24, 32]:
-#         raise ValueError("Key length must be 16, 24, or 32 bytes for AES.")
-#     return get_random_bytes(key_length)
 
 #encrpyt the data using ECB
 def ECB_encrypt(data: bytes, key: bytes) -> bytes:
     block_size = len(key)
+    #pad the data to a multiple of the block size
     padded_data = PKCS7_pad(data, block_size)
     #Create the AES cipher in ECB mode
     cipher = AES.new(key, AES.MODE_ECB)
@@ -160,7 +182,7 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
         plaintext = ECB_decrypt(data, key)
         #create new file name
         output_filename = image_filename.replace("_ECB_encrypted.bmp", "_ECB_decrypted.bmp")
-        #write header, IV, and decrypted data to new file
+        #write header and decrypted data to new file
         with open(output_filename, "wb") as file:
             file.write(header)
             file.write(plaintext)
@@ -168,7 +190,7 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
         plaintext = CBC_decrypt(data, key, iv)
         #create new file name
         output_filename = image_filename.replace("_CBC_encrypted.bmp", "_CBC_decrypted.bmp")
-        #write header, IV, and decrypted data to new file
+        #write header and decrypted data to new file
         with open(output_filename, "wb") as file:
             file.write(header)
             file.write(plaintext)
@@ -178,15 +200,15 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
 #----------------task 2 code---------------------
 
 #encrypt text using AES in CBC mode
-def submit(userdata: str, key: bytes, iv: bytes) -> bytes:  
-    text = "userid=456; userdata=" + userdata + ";session-id=31337"
+def submit(userdata: str, key, iv) -> bytes:  
+    text = "userid=456;userdata=" + userdata + ";session-id=31337"
     #URL encode the text replacing '=' and ';' with their respective ASCII values
     encoded_text= text.replace(";", "%3B").replace("=", "%3D")
     #pad the text to a multiple of 16 bytes
-    padded_text = PKCS7_pad(encoded_text.encode(), len(encoded_text.encode()))
+    padded_text = PKCS7_pad(encoded_text.encode(), len(key))
     #encrypt the padded text using AES in CBC mode
     ciphertext = CBC_encrypt(padded_text, key, iv)
-    return ciphertext
+    return ciphertext, encoded_text
 
 #decrypt text using AES in CBC mode
 def verify(cipher_text: bytes, key: bytes, iv: bytes) -> bool:
@@ -196,7 +218,9 @@ def verify(cipher_text: bytes, key: bytes, iv: bytes) -> bool:
     data = cipher.decrypt(cipher_text)
     #remove padding from the decrypted
     data = PKCS7_unpad(data)
-    plaintext = data.decode()
+    plaintext = data.decode('utf-8', errors='ignore')
+    #URL decode the text replacing '=' and ';' with their respective ASCII values
+    plaintext = plaintext.replace("%3B", ";").replace("%3D", "=")
     #extract the userdata from the plaintext
     if (";admin=true;" in plaintext):
         return True
@@ -204,57 +228,23 @@ def verify(cipher_text: bytes, key: bytes, iv: bytes) -> bool:
         return False
 
 #bit flipping attack to modify the ciphertext to inject the target string
-def bit_flipping(ciphertext: str, key: bytes, target: str) -> bytes:
+def bit_flipping(ciphertext, key, pos, target, message) -> bytes:
     block_size = len(key)
-    #split the ciphertext into blocks
-    blocks = []
-    for i in range(0, len(ciphertext), block_size):
-        blocks.append(ciphertext[i:i + block_size])
-    #convert the target string to bytes
-    target_bytes = target.encode()
-    #find the block that contains the target string
-    target_block_idx= 0
-    for i in range(len(blocks)):
-        if target_bytes in blocks[i]:
-            target_block_idx = i
-            break
-    #Modify the preceding ciphertext block to inject the target
-    modified_block = bytearray(blocks[target_block_idx - 1]) #bytearray makes it mutable
-    
-    for i in range(len(target_bytes)):
-        target_char = target_bytes[i]
-        #Replace with the correct byte
-        original_char = ord(';') if i < len(";admin=true;") else 0
-        #XOR with the difference  
-        modified_block[i] ^= target_char ^ original_char 
-
-    # Replace the modified block in the ciphertext
-    blocks[target_block_idx - 1] = bytes(modified_block) 
-
-    #Reassemble the modified ciphertext
-    modified_ciphertext = b"".join(blocks)
+    #Calculate which block needs modification
+    block_num = (pos // block_size)   #Block containing the target byte
+    pos_in_prev_block = pos % block_size
+    prev_block_start = (block_num - 1) * block_size  #Start of previous block
+    #make a mutable copy of ciphertext
+    modified_ciphertext = bytearray(ciphertext) 
+    #Modify the ciphertext to inject the target string
+    for i in range(0, len(target), 1):
+        #Calculate the current position in the previous block
+        current_pos = prev_block_start + pos_in_prev_block + i
+        #XOR the corresponding byte in the plaintext with the desired byte in the target
+        xor = ord(message[pos + i]) ^ ord(target[i])
+        #Apply XOR to modify the ciphertext
+        modified_ciphertext[current_pos] ^= xor
     return modified_ciphertext
 
-
-#----------------main code--------------------- 
-# if __name__ == "__main__":
-from cipher import *
-
-#----------------task 1 execution---------------------
-# key = get_random_bytes(16)
-# iv = get_random_bytes(16)
-# #cp-logo
-# encrypt_image("cp-logo.bmp", "ECB", key)
-# decrypt_image("cp-logo_ECB_encrypted.bmp", "ECB", key)
-# encrypt_image("cp-logo.bmp", "CBC", key, iv)
-# decrypt_image("cp-logo_CBC_encrypted.bmp", "CBC", key, iv)
-# #mustang
-# encrypt_image("mustang.bmp", "ECB", key)
-# decrypt_image("mustang_ECB_encrypted.bmp", "ECB", key)
-# encrypt_image("mustang.bmp", "CBC", key, iv)
-# decrypt_image("mustang_CBC_encrypted.bmp", "CBC", key, iv)
-
-# #----------------task 2 execution---------------------
-# cipher_text = submit("You’re the man now, dog", key, iv)
-# modified_cipher_text = bit_flipping(cipher_text, key, ";admin=true;")
-# print(verify(cipher_text, key, iv))
+if __name__ == "__main__":
+    main()
