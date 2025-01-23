@@ -1,10 +1,10 @@
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 
-#----------------main execution--------------------- 
+#----------------main execution---------------------# 
 def main():
     
-    #----------------task 1 execution---------------------
+    #----------------task 1 execution---------------------#
     key = get_random_bytes(16)
     iv = get_random_bytes(16)
 
@@ -20,7 +20,7 @@ def main():
     encrypt_image("mustang.bmp", "CBC", key, iv)
     decrypt_image("mustang_CBC_encrypted.bmp", "CBC", key, iv)
 
-    #----------------task 2 execution---------------------
+    #----------------task 2 execution---------------------#
     text = "eXtraD8tuh9hdm1n8yu37ncr6"
     target = ";admin=true;"
     ciphertext, message = submit(text, key, iv)
@@ -34,7 +34,7 @@ def main():
     print(result)
 
 
-#----------------task 1 code---------------------
+#----------------task 1 code---------------------#
 
 #helper function that determines the header size of a given BMP file
 def get_header_size(filename:str) -> int:
@@ -197,7 +197,7 @@ def decrypt_image(image_filename: str, mode: str, key: bytes, iv: bytes = 0) -> 
     else:
         raise ValueError("Invalid mode") 
 
-#----------------task 2 code---------------------
+#----------------task 2 code---------------------#
 
 #encrypt text using AES in CBC mode
 def submit(userdata: str, key, iv) -> bytes:  
