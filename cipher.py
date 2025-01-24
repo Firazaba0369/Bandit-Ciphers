@@ -23,6 +23,15 @@ def main():
     #----------------task 2 execution---------------------#
     text = "eXtraD8tuh9hdm1n8yu37ncr6"
     target = ";admin=true;"
+
+    #submit the text to get the ciphertext
+    ciphertext, message = submit(text, key, iv)
+    #get result of decryption
+    result = verify(ciphertext, key, iv)
+    #print the result before message modification
+    print(result)
+
+    #submit the text to get the ciphertext
     ciphertext, message = submit(text, key, iv)
 
     # Find position of '9' in the message to insert target string
@@ -30,7 +39,9 @@ def main():
 
     #bit flip the data to get the target string
     modified_ciphertext = bit_flipping(ciphertext, key, pos, target, message)
+    #get result of decryption
     result = verify(modified_ciphertext, key, iv)
+    #print the result after message modification
     print(result)
 
 
